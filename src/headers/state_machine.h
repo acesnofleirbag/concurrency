@@ -1,7 +1,7 @@
 #ifndef HEADERS_STATE_MACHINE_H
 #define HEADERS_STATE_MACHINE_H
 
-/* 
+/*
  * --------------------
  * STATE MACHINE FORMAT
  * --------------------
@@ -40,7 +40,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-typedef enum { WAITTING, PROCESSING } ProcessingState;
+typedef enum { INITIAL_ACK, WAITTING, PROCESSING } ProcessingState;
 
 void
 start_state_machine(int sockfd) {
@@ -64,6 +64,9 @@ start_state_machine(int sockfd) {
 
         for (int i = 0; i < len; i++) {
             switch (state) {
+                case INITIAL_ACK:
+                    printf("test");
+                    continue;
                 case WAITTING:
                     if (buf[i] == '^') {
                         state = PROCESSING;
