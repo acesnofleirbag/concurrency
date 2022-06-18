@@ -22,7 +22,10 @@ typedef struct {
 void sequential_server(int);
 void thread_server(int);
 
-int 
+void blocking_sock_connection(int);
+void nonblocking_sock_connection(int);
+
+int
 listen_inet_socket(int port) {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
