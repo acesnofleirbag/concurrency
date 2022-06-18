@@ -1,16 +1,16 @@
-#include <sys/socket.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "headers/servers.h"
 #include "headers/state_machine.h"
 
 void
 thread_server(int sockfd) {
-    while(1) {
+    while (1) {
         struct sockaddr_in peer_addr;
         socklen_t peer_addr_len = sizeof(peer_addr);
 

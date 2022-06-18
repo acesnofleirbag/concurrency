@@ -1,19 +1,16 @@
 #ifndef HEADERS_STATE_MACHINE_H
 #define HEADERS_STATE_MACHINE_H
 
-// STATE MACHINE FORMAT 
+// STATE MACHINE FORMAT
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <stdint.h>
 #include <unistd.h>
 
-typedef enum {
-    WAITTING,
-    PROCESSING
-} ProcessingState;
+typedef enum { WAITTING, PROCESSING } ProcessingState;
 
 void
 start_state_machine(int sockfd) {
@@ -24,7 +21,7 @@ start_state_machine(int sockfd) {
 
     ProcessingState state = WAITTING;
 
-    while(1) {
+    while (1) {
         uint8_t buf[1024];
         int len = recv(sockfd, buf, sizeof(buf), 0);
 
@@ -36,7 +33,7 @@ start_state_machine(int sockfd) {
         }
 
         for (int i = 0; i < len; i++) {
-            switch(state) {
+            switch (state) {
                 case WAITTING:
                     if (buf[i] == '^') {
                         state = PROCESSING;

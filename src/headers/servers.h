@@ -2,19 +2,20 @@
 #define HEADERS_SERVERS_H
 
 #include <asm-generic/socket.h>
+#include <fcntl.h>
+#include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <string.h>
-#include <pthread.h>
+#include <sys/socket.h>
 
 #include "state_machine.h"
 
 #define N_BACKLOG 64
 
-typedef struct { 
+typedef struct {
     int sockfd;
 } thread_config_t;
 
@@ -32,7 +33,7 @@ listen_inet_socket(int port) {
 
     int opt = 1;
 
-    if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
         perror("servers.h:27: error to set socket options\n");
         exit(1);
     }
@@ -45,12 +46,12 @@ listen_inet_socket(int port) {
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(port);
 
-    if(bind(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) == -1) {
+    if (bind(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) == -1) {
         perror("servers.h:40: error to bind socket\n");
         exit(1);
     }
 
-    if(listen(sockfd, N_BACKLOG) == -1) {
+    if (listen(sockfd, N_BACKLOG) == -1) {
         perror("servers.h:45: error on listen socket\n");
         exit(1);
     }
@@ -58,7 +59,7 @@ listen_inet_socket(int port) {
     return sockfd;
 }
 
-void 
+void
 log_peer_connection(const struct sockaddr_in* sa, socklen_t salen) {
     char hostbuf[NI_MAXHOST];
     char portbuf[NI_MAXSERV];
