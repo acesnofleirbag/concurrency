@@ -1,3 +1,5 @@
+OBJ = $(shell find src -type f -iname '*.h' -or -iname '*.c')
+
 CC = clang
 CCFLAGS = -std=gnu99 -Wall -Werror -Wextra -pedantic -pthread
 LDFLAGS = -lpthread -pthread
@@ -9,3 +11,6 @@ build: src/main.c
 serve:
 	@./build/server
 
+lint:
+	@clang-format -style=file -i $(OBJ)
+	@echo "reformatted successfully"

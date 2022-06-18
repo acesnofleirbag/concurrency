@@ -1,0 +1,35 @@
+---
+# REF: <https://clang.llvm.org/docs/ClangFormatStyleOptions.html>
+BasedOnStyle:  Google
+AlignTrailingComments: false
+AllowAllArgumentsOnNextLine: false
+AllowAllConstructorInitializersOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakAfterDefinitionReturnType: All
+AlwaysBreakAfterReturnType: TopLevelDefinitions
+AlwaysBreakBeforeMultilineStrings: false
+BinPackArguments: false
+BinPackParameters: false
+BraceWrapping:
+  AfterClass:      true
+  AfterControlStatement: Never
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeInheritanceComma: true
+BreakInheritanceList: AfterColon
+BreakConstructorInitializersBeforeComma: true
+BreakConstructorInitializers: AfterColon
+BreakAfterJavaFieldAnnotations: true
+ColumnLimit:     120
+IndentWidth:     4
+SpaceAfterCStyleCast: true
+SpaceBeforeCpp11BracedList: true
+SpacesInContainerLiterals: false
+...
+
