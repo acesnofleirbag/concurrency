@@ -3,6 +3,7 @@
 
 #include "headers/state_machine.h"
 #include "sequential_server.c"
+#include "thread_server.c"
 
 int 
 main(int argc, char** argv) {
@@ -18,7 +19,8 @@ main(int argc, char** argv) {
 
     int sockfd = listen_inet_socket(port);
 
-    sequential_server(sockfd);
+    /* sequential_server(sockfd); */
+    thread_server(sockfd);
 
     return 0;
 }

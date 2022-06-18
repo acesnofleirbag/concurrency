@@ -16,7 +16,7 @@ sequential_server(int sockfd) {
         int sockfd_new = accept(sockfd, (struct sockaddr*) &peer_addr, &peer_addr_len);
 
         if (sockfd_new < 0) {
-            perror("sequential_server.h:16: herror to accept socket connection\n");
+            perror("sequential_server.c:16: error to accept socket connection\n");
             exit(1);
         }
 

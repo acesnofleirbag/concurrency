@@ -8,10 +8,18 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <string.h>
+#include <pthread.h>
+
+#include "state_machine.h"
 
 #define N_BACKLOG 64
 
+typedef struct { 
+    int sockfd;
+} thread_config_t;
+
 void sequential_server(int);
+void thread_server(int);
 
 int 
 listen_inet_socket(int port) {
@@ -60,6 +68,25 @@ log_peer_connection(const struct sockaddr_in* sa, socklen_t salen) {
     } else {
         printf("peer 'unknown' connected\n");
     }
+}
+
+void*
+start_thread(void* arg) {
+    thread_config_t* config = (thread_config_t*) arg;
+
+    int sockfd = config->sockfd;
+
+    free(config);
+
+    unsigned long id = (unsigned long) pthread_self();
+
+    printf("thread %lu created to handle connection with socket %d\n", id, sockfd);
+
+    start_state_machine(sockfd);
+
+    printf("thread %lu done\n", id);
+
+    return 0;
 }
 
 #endif
