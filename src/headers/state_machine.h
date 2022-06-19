@@ -1,7 +1,37 @@
 #ifndef HEADERS_STATE_MACHINE_H
 #define HEADERS_STATE_MACHINE_H
 
-// STATE MACHINE FORMAT
+/* 
+ * --------------------
+ * STATE MACHINE FORMAT
+ * --------------------
+ *
+ *             START
+ *               |
+ *               |
+ *               v
+ *       +----------------+
+ *       |                |
+ *       |    WAIT FOR    |
+ *       |    CLIENT      |
+ *       |                |
+ *       +-------+--------+                       IN: RECEIVED CHAR X (X != $)
+ *               |
+ * IN: CLIENT    |                                OUT: SEND CHAR (X + 1)
+ * CONNECTED     |
+ *               |                                +-----------------------+
+ * OUT: SEND *   |          IN: RECEIVED ^        |                       |
+ *               v                                |                       |
+ *       +----------------+               +-------+--------+              |
+ *       |                +-------------->|                |              |
+ *       |                |               |                |              |
+ *       |    WAITTING    |               |   PROCESSING   |<-------------+
+ *       |                |               |                |
+ *       |                |<--------------+                |
+ *       +----------------+               +----------------+
+ *                          IN: RECEIVED $
+ *
+ */
 
 #include <stdint.h>
 #include <stdio.h>
