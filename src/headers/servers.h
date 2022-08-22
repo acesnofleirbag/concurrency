@@ -14,13 +14,15 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <uv.h>
 
+#include "error.h"
 #include "state_machine.h"
 
+#define UNUSED(param) (void) (param);
 #define N_BACKLOG 64
 #define MAXFDS 16 * 1024
 #define SEND_BUF_SIZE 1024
-
 typedef struct {
     int sockfd;
 } thread_config_t;
@@ -35,6 +37,8 @@ typedef struct {
     uint8_t send_buf[SEND_BUF_SIZE];
     int send_buf_end;
     int send_ptr;
+    // NOTE: libuv usage
+    uv_tcp_t* client;
 } peer_state_t;
 
 static struct {
@@ -56,28 +60,27 @@ static struct {
 // the same fd
 static peer_state_t global_state[MAXFDS];
 
-void sequential_server(int);
-void thread_server(int);
-void event_driven_select_server(int);
-void event_driven_epoll_server(int);
+void sequential_server(int sockfd);
+void thread_server(int sockfd);
+void event_driven_select_server(int sockfd);
+void event_driven_epoll_server(int sockfd);
+int event_driven_libuv_server(int port);
 
-void blocking_sock_connection(int);
-void nonblocking_sock_connection(int);
+void blocking_sock_connection(int sockfd);
+void nonblocking_sock_connection(int sockfd);
 
 int
 listen_inet_socket(int port) {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (sockfd == -1) {
-        perror("servers.h:64: error to start the INET/TCP socket connection\n");
-        exit(1);
+        errlog("error to start the INET/TCP socket connection");
     }
 
     int opt = 1;
 
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
-        perror("servers.h:73: error to set socket options\n");
-        exit(1);
+        errlog("error to set socket options");
     }
 
     struct sockaddr_in serv_addr;
@@ -89,13 +92,11 @@ listen_inet_socket(int port) {
     serv_addr.sin_port = htons(port);
 
     if (bind(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) == -1) {
-        perror("servers.h:86: error to bind socket\n");
-        exit(1);
+        errlog("error to bind socket");
     }
 
     if (listen(sockfd, N_BACKLOG) == -1) {
-        perror("servers.h:91: error on listen socket\n");
-        exit(1);
+        errlog("error on listen socket");
     }
 
     return sockfd;
@@ -137,13 +138,11 @@ make_sock_nonblocking(int sockfd) {
     int flags = fcntl(sockfd, F_GETFL, 0);
 
     if (flags == -1) {
-        perror("servers.h:132: error on fcntl to get flags");
-        exit(1);
+        errlog("error on fcntl to get flags");
     }
 
     if (fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        perror("servers.h:139: error to set nonblocking mode on socket connection");
-        exit(1);
+        errlog("error to set nonblocking mode on socket connection");
     }
 }
 
@@ -181,8 +180,7 @@ on_peer_ready_recv(int sockfd) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             return fd_status_mode_t.READ;
         } else {
-            perror("servers.h:173: error to receive socket data");
-            exit(1);
+            errlog("error to receive socket data");
         }
     } else if (bytes_len == 0) {
         return fd_status_mode_t.NO_READ_WRITE;
@@ -233,8 +231,7 @@ on_peer_ready_send(int sockfd) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             return fd_status_mode_t.WRITE;
         } else {
-            perror("servers.h:228: error to send data on socket");
-            exit(1);
+            errlog("error to send data on socket");
         }
     }
 
@@ -253,6 +250,203 @@ on_peer_ready_send(int sockfd) {
         }
 
         return fd_status_mode_t.READ;
+    }
+}
+
+void
+uv_on_client_closed(uv_handle_t* handle) {
+    uv_tcp_t* client = (uv_tcp_t*) handle;
+
+    if (client->data) {
+        free(client->data);
+    }
+
+    free(client);
+}
+
+void
+uv_on_wrote_buffer(uv_write_t* req, int status) {
+    if (status) {
+        errlog("libuv error to write on connection: %s", uv_strerror(status));
+    }
+
+    peer_state_t* peerstate = (peer_state_t*) req->data;
+
+    // NOTE: if the message ends with 'WXY' finish the connection and close the main event loop
+    if (peerstate->send_buf_end >= 3 && peerstate->send_buf[peerstate->send_buf_end - 3] == 'X'
+        && peerstate->send_buf[peerstate->send_buf_end - 2] == 'Y'
+        && peerstate->send_buf[peerstate->send_buf_end - 1] == 'Z') {
+        free(peerstate);
+        free(req);
+
+        uv_stop(uv_default_loop());
+
+        return;
+    }
+
+    peerstate->send_buf_end = 0;
+
+    free(req);
+}
+
+void
+uv_on_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
+    UNUSED(handle);
+
+    buf->base = (char*) malloc(suggested_size);
+
+    if (buf->base == NULL) {
+        errlog("error to allocate memory");
+    }
+
+    buf->len = suggested_size;
+}
+
+void
+uv_on_peer_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
+    if (nread < 0) {
+        if (nread != UV_EOF) {
+            fprintf(stderr, "libuv error reading connection: %s\n", uv_strerror(nread));
+        }
+
+        uv_close((uv_handle_t*) client, uv_on_client_closed);
+    } else if (nread == 0) {
+        // NOTE: don't do nothing is not an error
+    } else {
+        assert((ssize_t) buf->len >= nread);
+
+        peer_state_t* peerstate = (peer_state_t*) client->data;
+
+        if (peerstate->state == INITIAL_ACK) {
+            free(buf->base);
+
+            return;
+        }
+
+        for (int i = 0; i < nread; i++) {
+            switch (peerstate->state) {
+                case INITIAL_ACK:
+                    assert(0 && "can't reach here");
+                    break;
+                case WAITTING:
+                    if (buf->base[i] == '^') {
+                        peerstate->state = PROCESSING;
+                    }
+
+                    break;
+                case PROCESSING:
+                    if (buf->base[i] == '$') {
+                        peerstate->state = WAITTING;
+                    } else {
+                        assert(peerstate->send_buf_end < SEND_BUF_SIZE);
+
+                        peerstate->send_buf[peerstate->send_buf_end++] = buf->base[i] + 1;
+                    }
+
+                    break;
+            }
+        }
+
+        if (peerstate->send_buf_end > 0) {
+            uv_buf_t write_buf = uv_buf_init((char*) peerstate->send_buf, peerstate->send_buf_end);
+            uv_write_t* write_req = (uv_write_t*) malloc(sizeof(*write_req));
+
+            if (write_req == NULL) {
+                errlog("error to allocate memory");
+            }
+
+            write_req->data = peerstate;
+
+            int rc;
+
+            if ((rc = uv_write(write_req, (uv_stream_t*) client, &write_buf, 1, uv_on_wrote_buffer)) < 0) {
+                errlog("libuv error to write: %s", uv_strerror(rc));
+            }
+        }
+    }
+
+    free(buf->base);
+}
+
+void
+uv_on_wrote_init_ack(uv_write_t* req, int status) {
+    if (status) {
+        errlog("libuv write error: %s", uv_strerror(status));
+    }
+
+    peer_state_t* peerstate = (peer_state_t*) req->data;
+
+    peerstate->state = WAITTING;
+    peerstate->send_buf_end = 0;
+
+    int rc;
+
+    if ((rc = uv_read_start((uv_stream_t*) peerstate->client, uv_on_alloc_buffer, uv_on_peer_read)) < 0) {
+        errlog("libuv error to read connection: %s", uv_strerror(rc));
+    }
+
+    free(req);
+}
+
+void
+uv_on_peer_connected(uv_stream_t* server_stream, int status) {
+    if (status < 0) {
+        fprintf(stderr, "%s:%d: peer connection error: %s\n", __FILE__, __LINE__, uv_strerror(status));
+
+        return;
+    }
+
+    uv_tcp_t* client = (uv_tcp_t*) malloc(sizeof(*client));
+
+    if (client == NULL) {
+        errlog("error to allocate memory");
+    }
+
+    int rc;
+
+    if ((rc = uv_tcp_init(uv_default_loop(), client)) == -1) {
+        errlog("libuv client connection failed: %s", uv_strerror(rc));
+    }
+
+    client->data = NULL;
+
+    if (uv_accept(server_stream, (uv_stream_t*) client) == 0) {
+        struct sockaddr_storage peername;
+        int namelen = sizeof(peername);
+
+        if ((rc = uv_tcp_getpeername(client, (struct sockaddr*) &peername, &namelen)) < 0) {
+            errlog("identify peer name failed: %s", uv_strerror(rc));
+        }
+
+        // uv_report_peer_connected((const struct sockaddr_in*) &peername, namelen);
+
+        peer_state_t* peerstate = (peer_state_t*) malloc(sizeof(*peerstate));
+
+        if (peerstate == NULL) {
+            errlog("error to allocate memory");
+        }
+
+        peerstate->state = INITIAL_ACK;
+        peerstate->send_buf[0] = '*';
+        peerstate->send_buf_end = 1;
+        peerstate->client = client;
+
+        client->data = peerstate;
+
+        uv_buf_t write_buf = uv_buf_init((char*) peerstate->send_buf, peerstate->send_buf_end);
+        uv_write_t* req = (uv_write_t*) malloc(sizeof(*req));
+
+        if (req == NULL) {
+            errlog("error to allocate memory");
+        }
+
+        req->data = peerstate;
+
+        if ((rc = uv_write(req, (uv_stream_t*) client, &write_buf, 1, uv_on_wrote_init_ack)) < 0) {
+            errlog("libuv write on connection error: %s", uv_strerror(rc));
+        }
+    } else {
+        uv_close((uv_handle_t*) client, uv_on_client_closed);
     }
 }
 

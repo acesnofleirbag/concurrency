@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "headers/error.h"
 #include "headers/servers.h"
 #include "headers/state_machine.h"
 
@@ -17,8 +18,7 @@ thread_server(int sockfd) {
         int sockfd_new = accept(sockfd, (struct sockaddr*) &peer_addr, &peer_addr_len);
 
         if (sockfd_new < 0) {
-            perror("thread_server.c:16: error to accept socket connection\n");
-            exit(1);
+            errlog("error to accept socket connection");
         }
 
         log_peer_connection(&peer_addr, peer_addr_len);
@@ -27,8 +27,7 @@ thread_server(int sockfd) {
         thread_config_t* config = (thread_config_t*) malloc(sizeof(*config));
 
         if (!config) {
-            perror("thread_server.c:27: error to get thread config");
-            exit(1);
+            errlog("error to get thread config");
         }
 
         config->sockfd = sockfd_new;

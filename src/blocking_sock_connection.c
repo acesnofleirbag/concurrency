@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 
+#include "headers/error.h"
 #include "headers/servers.h"
 
 void
@@ -14,8 +15,7 @@ blocking_sock_connection(int sockfd) {
     int sockfd_new = accept(sockfd, (struct sockaddr*) &peer_addr, &peer_addr_len);
 
     if (sockfd_new == -1) {
-        perror("blocking_sock_connection.c:10: error to accept connection");
-        exit(1);
+        errlog("error to accept connection");
     }
 
     log_peer_connection(&peer_addr, peer_addr_len);
@@ -28,7 +28,7 @@ blocking_sock_connection(int sockfd) {
         int len = recv(sockfd_new, buf, sizeof buf, 0);
 
         if (len == -1) {
-            perror("blocking_sock_connection.c:28: error calling recv");
+            fprintf(stderr, "%s:%d: error calling recv", __FILE__, __LINE__);
         } else if (len == 0) {
             printf("peer disconnected, i'm done\n");
             break;

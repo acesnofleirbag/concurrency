@@ -5,6 +5,7 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 
+#include "headers/error.h"
 #include "headers/servers.h"
 
 void
@@ -12,8 +13,7 @@ event_driven_select_server(int sockfd) {
     make_sock_nonblocking(sockfd);
 
     if (sockfd >= FD_SETSIZE) {
-        fprintf(stderr, "peer socket connection on fd (%d) >= FD_SETSIZE (%d)", sockfd, FD_SETSIZE);
-        exit(1);
+        errlog("peer socket connection on fd (%d) >= FD_SETSIZE (%d)", sockfd, FD_SETSIZE);
     }
 
     fd_set master_read_fd, master_write_fd;
@@ -35,8 +35,7 @@ event_driven_select_server(int sockfd) {
         int ready_len = select(fdset_max + 1, &read_fd_copy, &write_fd_copy, NULL, NULL);
 
         if (ready_len == -1) {
-            perror("event_driven_select_server.c:35: error on select get ready state");
-            exit(1);
+            errlog("error on select get ready state");
         }
 
         for (int fd = 0; fd <= fdset_max && ready_len > 0; fd++) {
@@ -57,16 +56,14 @@ event_driven_select_server(int sockfd) {
                             // rare event
                             printf("accept returned EAGAIN or EWOULDBLOCK\n");
                         } else {
-                            perror("event_driven_select_server.c:52: error to accept socket connection");
-                            exit(1);
+                            errlog("error to accept socket connection");
                         }
                     } else {
                         make_sock_nonblocking(sockfd_new);
 
                         if (sockfd_new > fdset_max) {
                             if (sockfd_new >= FD_SETSIZE) {
-                                fprintf(stderr, "socket fd (%d) >= FD_SETSIZE (%d)", sockfd_new, FD_SETSIZE);
-                                exit(1);
+                                errlog("socket fd (%d) >= FD_SETSIZE (%d)", sockfd_new, FD_SETSIZE);
                             }
 
                             fdset_max = sockfd_new;

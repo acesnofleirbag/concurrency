@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "headers/error.h"
 #include "headers/servers.h"
 
 void
@@ -16,8 +17,7 @@ nonblocking_sock_connection(int sockfd) {
     int sockfd_new = accept(sockfd, (struct sockaddr*) &peer_addr, &peer_addr_len);
 
     if (sockfd_new == -1) {
-        perror("nonblocking_sock_connection.c:10: error to accept connection");
-        exit(1);
+        errlog("error to accept connection");
     }
 
     log_peer_connection(&peer_addr, peer_addr_len);
@@ -26,13 +26,11 @@ nonblocking_sock_connection(int sockfd) {
     int flags = fcntl(sockfd_new, F_GETFL, 0);
 
     if (flags == -1) {
-        perror("nonblocking_sock_connection.c:23: error on fcntl to get flags");
-        exit(1);
+        errlog("error on fcntl to get flags");
     }
 
     if (fcntl(sockfd_new, F_SETFL, flags | O_NONBLOCK) == -1) {
-        perror("nonblocking_sock_connection.c:30: error to set nonblocking mode on socket connection");
-        exit(1);
+        errlog("error to set nonblocking mode on socket connection");
     }
 
     while (1) {

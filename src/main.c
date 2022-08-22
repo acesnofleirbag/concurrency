@@ -3,6 +3,7 @@
 
 #include "blocking_sock_connection.c"
 #include "event_driven_epoll_server.c"
+#include "event_driven_libuv_server.c"
 #include "event_driven_select_server.c"
 #include "headers/state_machine.h"
 #include "nonblocking_sock_connection.c"
@@ -21,14 +22,15 @@ main(int argc, char** argv) {
 
     printf("server listen on port: %d\n", port);
 
-    int sockfd = listen_inet_socket(port);
+    /* int sockfd = listen_inet_socket(port); */
 
     /* sequential_server(sockfd); */
     /* thread_server(sockfd); */
     /* blocking_sock_connection(sockfd); */
     /* nonblocking_sock_connection(sockfd); */
-    event_driven_select_server(sockfd);
+    /* event_driven_select_server(sockfd); */
     /* event_driven_epoll_server(sockfd); */
+    event_driven_libuv_server(port);
 
     return 0;
 }

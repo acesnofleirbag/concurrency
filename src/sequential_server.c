@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "headers/error.h"
 #include "headers/servers.h"
 #include "headers/state_machine.h"
 
@@ -16,12 +17,12 @@ sequential_server(int sockfd) {
         int sockfd_new = accept(sockfd, (struct sockaddr*) &peer_addr, &peer_addr_len);
 
         if (sockfd_new < 0) {
-            perror("sequential_server.c:16: error to accept socket connection\n");
-            exit(1);
+            errlog("error to accept socket connection");
         }
 
         log_peer_connection(&peer_addr, peer_addr_len);
         start_state_machine(sockfd_new);
+
         printf("peer done\n");
     }
 }
